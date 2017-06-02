@@ -53,6 +53,13 @@ struct file_descriptor
     int handle() const { return _handle;}
 
 private:
+    // customization point for fd_restrict
+    template <typename OutputIterator>
+    friend void collect_filedescriptors(file_descriptor const& property_, OutputIterator& outit) {
+        if (-1 != property_._handle)
+            *outit++ = property_._handle;
+    }
+
     static int create_file(const char* name, mode_t mode )
     {
         switch(mode)

@@ -11,6 +11,7 @@
 #define BOOST_PROCESS_DETAIL_POSIX_FD_HPP
 
 #include <boost/process/detail/posix/handler.hpp>
+#include <boost/process/detail/posix/fd_restrict.hpp>
 #include <unistd.h>
 
 namespace boost { namespace process { namespace detail { namespace posix {
@@ -68,10 +69,15 @@ public:
     }
 
 private:
+    // customization point for fd_restrict
+    template <typename OutputIterator>
+    friend void collect_filedescriptors(bind_fd_ const& bind_fd, OutputIterator& outit) {
+        *outit++ = bind_fd.id_;
+    }
+
     int id_;
     FileDescriptor fd_;
 };
-
 
 struct fd_
 {
@@ -84,6 +90,7 @@ struct fd_
     template <class FileDescriptor>
     bind_fd_<FileDescriptor> bind(int id, const FileDescriptor & fd) const {return {id, fd};}
 
+    fd_restrict::property_<> restrict_inherit(size_t capacity = 128) const {return {capacity};}
 };
 
 

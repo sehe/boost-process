@@ -15,6 +15,7 @@
 #include <boost/process/pipe.hpp>
 #include <boost/process/detail/posix/basic_pipe.hpp>
 #include <boost/process/detail/posix/use_vfork.hpp>
+#include <boost/process/detail/posix/file_descriptor.hpp>
 #include <boost/fusion/algorithm/iteration/for_each.hpp>
 #include <cstdlib>
 #include <sys/types.h>
@@ -329,6 +330,12 @@ public:
     }
     void set_error(const std::error_code &ec, const std::string &msg) {set_error(ec, msg.c_str());};
 
+    // customization point for fd_restrict
+    template <typename OutputIterator>
+    friend void collect_filedescriptors(executor const& me, OutputIterator& outit) {
+        // always protect the write end of the parent/child pipe
+        *outit++ = me._pipe_sink;
+    }
 };
 
 template<typename Sequence>
@@ -379,6 +386,7 @@ child executor<Sequence>::invoke(boost::mpl::false_, boost::mpl::false_)
         return child();
     }
     _ec.clear();
+    _pipe_sink = p[1];
     boost::fusion::for_each(seq, call_on_setup(*this));
 
     if (_ec)
@@ -390,6 +398,7 @@ child executor<Sequence>::invoke(boost::mpl::false_, boost::mpl::false_)
     this->pid = ::fork();
     if (pid == -1)
     {
+        _pipe_sink = -1;
         _ec = boost::process::detail::get_last_error();
         _msg = "fork() failed";
         boost::fusion::for_each(seq, call_on_fork_error(*this, _ec));
@@ -399,7 +408,6 @@ child executor<Sequence>::invoke(boost::mpl::false_, boost::mpl::false_)
     }
     else if (pid == 0)
     {
-        _pipe_sink = p[1];
         ::close(p[0]);
 
         boost::fusion::for_each(seq, call_on_exec_setup(*this));
